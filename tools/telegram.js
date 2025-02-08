@@ -406,7 +406,7 @@ bot.on('message', async (ctx) => {
             }
             return;
         } else {
-            statusMsg = await ctx.reply('🤖 Thinking...')
+            // statusMsg = await ctx.reply('🤖 Thinking...')
     
             const response = await compiledGraph.invoke(new HumanMessage(ctx.message.text));
             console.log('Raw response:', response);
@@ -420,10 +420,7 @@ bot.on('message', async (ctx) => {
             if (finalContent) {
                 try {
                     // Send complete message immediately
-                    await bot.telegram.editMessageText(
-                        ctx.chat.id,
-                        statusMsg.message_id,
-                        null,
+                    await ctx.reply(
                         finalContent,
                         { disable_web_page_preview: true }
                     );
