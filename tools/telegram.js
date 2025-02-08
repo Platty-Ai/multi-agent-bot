@@ -446,7 +446,7 @@ bot.catch(async (err, ctx) => {
 });
 
 // Launch bot
-bot.launch();
+// bot.launch();
 
 // Graceful shutdown
 process.once('SIGINT', () => bot.stop('SIGINT'));
