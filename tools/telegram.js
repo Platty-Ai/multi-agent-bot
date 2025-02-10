@@ -12,32 +12,6 @@ const { CallbackManager } = require("@langchain/core/callbacks/manager");
 const { Telegraf } = require("telegraf")
 const bot = new Telegraf(process.env.BOT_TOKEN);
 
-// Get bot info on startup
-let botInfo;
-bot.telegram.getMe().then(info => {
-    botInfo = info;
-    console.log('Bot initialized:', info.username);
-});
-
-// Helper function to check if message mentions bot
-const isBotMentioned = (message, botInfo) => {
-    // Check for direct mentions in text
-    if (message.entities) {
-        const mentions = message.entities.filter(e => 
-            e.type === 'mention' && 
-            message.text.substring(e.offset, e.offset + e.length) === `@${botInfo.username}`
-        );
-        if (mentions.length > 0) return true;
-    }
-
-    // Check for replies to bot's messages
-    if (message.reply_to_message && message.reply_to_message.from.id === botInfo.id) {
-        return true;
-    }
-
-    return false;
-};
-
 // Initialize tools
 const { z } = require("zod");
 const wikipedia = new WikipediaQueryRun();
@@ -65,9 +39,6 @@ class FluxImageTool extends StructuredTool {
     }
 }
 
-const fs = require('fs').promises;
-const path = require('path');
-const { ConsoleCallbackHandler } = require("langchain/callbacks");
 
 // Add generateFluxImage function
 const generateFluxImage = async (prompt) => {
@@ -396,16 +367,93 @@ const handleError = async (error, ctx, statusMsgId = null) => {
     });
 };
 
+// Helper function to check if message mentions bot
+const isBotMentioned = (message, botInfo) => {
+    // Debug logging
+    console.log('Checking message:', {
+        text: message.text,
+        entities: message.entities,
+        botInfo: botInfo
+    });
 
+    // Check for direct mentions in text
+    if (message.entities) {
+        const mentions = message.entities.filter(e => {
+            if (e.type === 'mention') {
+                const mention = message.text.substring(e.offset, e.offset + e.length);
+                console.log('Found mention:', mention);
+                return mention === `@${botInfo.username}`;
+            }
+            return false;
+        });
+        if (mentions.length > 0) return true;
+    }
+
+    // Check for replies to bot's messages
+    if (message.reply_to_message && 
+        message.reply_to_message.from && 
+        message.reply_to_message.from.id === botInfo.id) {
+        return true;
+    }
+
+    // Check for bot commands
+    if (message.entities && 
+        message.entities.some(e => e.type === 'bot_command' && 
+        message.text.substring(e.offset, e.offset + e.length).includes(botInfo.username))) {
+        return true;
+    }
+
+    return false;
+};
+
+// startup logging
+bot.on('polling_error', (error) => {
+    console.error('Polling error:', error);
+});
+
+bot.use(async (ctx, next) => {
+    console.log('Received message:', {
+        text: ctx.message?.text,
+        from: ctx.message?.from,
+        chat: ctx.chat
+    });
+    await next();
+});
+
+// Initialize bot with explicit logging
+let botInfo;
+bot.telegram.getMe().then(info => {
+    botInfo = info;
+    console.log('Bot initialized with info:', info);
+}).catch(error => {
+    console.error('Failed to get bot info:', error);
+});
 
 // Add message handler with error handling
 bot.on('message', async (ctx) => {
+    // Debug logging
+    console.log('Processing message:', {
+        text: ctx.message.text,
+        botInfo: botInfo
+    });
+    // Check if bot info is loaded
+    if (!botInfo) {
+        console.log('Bot info not yet loaded, attempting to load...');
+        try {
+            botInfo = await ctx.telegram.getMe();
+            console.log('Bot info loaded:', botInfo);
+        } catch (error) {
+            console.error('Failed to load bot info:', error);
+            return;
+        }
+    }
 
-     // Skip if bot info isn't loaded yet
-     if (!botInfo) return;
+    if (!isBotMentioned(ctx.message, botInfo)) {
+        console.log('Bot not mentioned, skipping message');
+        return;
+    }
 
-     // Skip if message doesn't mention bot
-     if (!isBotMentioned(ctx.message, botInfo)) return;
+    console.log('Bot mentioned, processing message');
 
     let statusMsg = null;
     try {
