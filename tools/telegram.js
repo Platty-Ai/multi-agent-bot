@@ -490,7 +490,7 @@ bot.on('message', async (ctx) => {
         } else {
             // statusMsg = await ctx.reply('🤖 Thinking...')
     
-            const response = await compiledGraph.invoke(new HumanMessage(cleanText));
+            const response = await compiledGraph.invoke([new HumanMessage(cleanText)]);
             console.log('Raw response:', response);
 
             // Extract content from AIMessageChunk
