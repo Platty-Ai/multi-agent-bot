@@ -12,6 +12,32 @@ const { CallbackManager } = require("@langchain/core/callbacks/manager");
 const { Telegraf } = require("telegraf")
 const bot = new Telegraf(process.env.BOT_TOKEN);
 
+// Get bot info on startup
+let botInfo;
+bot.telegram.getMe().then(info => {
+    botInfo = info;
+    console.log('Bot initialized:', info.username);
+});
+
+// Helper function to check if message mentions bot
+const isBotMentioned = (message, botInfo) => {
+    // Check for direct mentions in text
+    if (message.entities) {
+        const mentions = message.entities.filter(e => 
+            e.type === 'mention' && 
+            message.text.substring(e.offset, e.offset + e.length) === `@${botInfo.username}`
+        );
+        if (mentions.length > 0) return true;
+    }
+
+    // Check for replies to bot's messages
+    if (message.reply_to_message && message.reply_to_message.from.id === botInfo.id) {
+        return true;
+    }
+
+    return false;
+};
+
 // Initialize tools
 const { z } = require("zod");
 const wikipedia = new WikipediaQueryRun();
@@ -374,17 +400,26 @@ const handleError = async (error, ctx, statusMsgId = null) => {
 
 // Add message handler with error handling
 bot.on('message', async (ctx) => {
-    console.log(ctx);
+
+     // Skip if bot info isn't loaded yet
+     if (!botInfo) return;
+
+     // Skip if message doesn't mention bot
+     if (!isBotMentioned(ctx.message, botInfo)) return;
+
     let statusMsg = null;
     try {
-        const isImageRequest = ctx.message.text.toLowerCase().match(/generate|create|visualize|make|draw/g) &&
-            ctx.message.text.toLowerCase().match(/image|picture|visual|photo/g);
+        // Clean the message text by removing the bot mention
+        let cleanText = ctx.message.text.replace(`@${botInfo.username}`, '').trim();
+        
+        const isImageRequest = cleanText.toLowerCase().match(/generate|create|visualize|make|draw/g) &&
+            cleanText.toLowerCase().match(/image|picture|visual|photo/g);
 
         if (isImageRequest) {
             statusMsg = await ctx.reply('⚡ Generating visual manifestation...');
             
             try {
-                const imageResult = await generateFluxImage(ctx.message.text);
+                const imageResult = await generateFluxImage(cleanText);
 
                 if (imageResult && imageResult.success && imageResult.buffer) {
                     await ctx.telegram.deleteMessage(ctx.chat.id, statusMsg.message_id);
@@ -406,12 +441,9 @@ bot.on('message', async (ctx) => {
             }
             return;
         } else {
-            // statusMsg = await ctx.reply('🤖 Thinking...')
-    
-            const response = await compiledGraph.invoke(new HumanMessage(ctx.message.text));
+            const response = await compiledGraph.invoke(new HumanMessage(cleanText));
             console.log('Raw response:', response);
 
-            // Extract content from AIMessageChunk
             const finalContent = response.find(msg => 
                 (msg instanceof AIMessage || msg.constructor.name === 'AIMessageChunk') && 
                 msg.content
@@ -419,10 +451,12 @@ bot.on('message', async (ctx) => {
 
             if (finalContent) {
                 try {
-                    // Send complete message immediately
                     await ctx.reply(
                         finalContent,
-                        { disable_web_page_preview: true }
+                        { 
+                            disable_web_page_preview: true,
+                            reply_to_message_id: ctx.message.message_id // Reply to the original message
+                        }
                     );
                 } catch (error) {
                     console.error('Message processing error:', error);
