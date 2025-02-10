@@ -448,17 +448,26 @@ bot.on('message', async (ctx) => {
         }
     }
 
-    if (!isBotMentioned(ctx.message, botInfo)) {
-        console.log('Bot not mentioned, skipping message');
-        return;
+    // If private chat, process regardless of mention. Otherwise, check if bot is mentioned.
+    if (ctx.chat.type !== 'private') {
+        if (!isBotMentioned(ctx.message, botInfo)) {
+            console.log('Bot not mentioned, skipping message');
+            return;
+        }
+        console.log('Bot mentioned in group, processing message');
+    } else {
+        console.log('Private chat, processing message');
     }
 
     console.log('Bot mentioned, processing message');
 
     let statusMsg = null;
     try {
-        let cleanText = ctx.message.text.replace(`@${botInfo?.username || ''}`, '').trim();
-
+        let cleanText = ctx.message.text.trim();
+        // In group chats, remove the bot's username if it's mentioned
+        if (ctx.chat.type !== 'private') {
+            cleanText = cleanText.replace(`@${botInfo?.username || ''}`, '').trim();
+        }
         const isImageRequest = cleanText.toLowerCase().match(/generate|create|visualize|make|draw/g) &&
             cleanText.toLowerCase().match(/image|picture|visual|photo/g);
 
