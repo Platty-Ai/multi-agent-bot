@@ -409,7 +409,6 @@ bot.on('message', async (ctx) => {
 
     let statusMsg = null;
     try {
-        // Clean the message text by removing the bot mention
         let cleanText = ctx.message.text.replace(`@${botInfo.username}`, '').trim();
         
         const isImageRequest = cleanText.toLowerCase().match(/generate|create|visualize|make|draw/g) &&
@@ -441,9 +440,12 @@ bot.on('message', async (ctx) => {
             }
             return;
         } else {
+            // statusMsg = await ctx.reply('🤖 Thinking...')
+    
             const response = await compiledGraph.invoke(new HumanMessage(cleanText));
             console.log('Raw response:', response);
 
+            // Extract content from AIMessageChunk
             const finalContent = response.find(msg => 
                 (msg instanceof AIMessage || msg.constructor.name === 'AIMessageChunk') && 
                 msg.content
@@ -451,12 +453,10 @@ bot.on('message', async (ctx) => {
 
             if (finalContent) {
                 try {
+                    // Send complete message immediately
                     await ctx.reply(
                         finalContent,
-                        { 
-                            disable_web_page_preview: true,
-                            reply_to_message_id: ctx.message.message_id // Reply to the original message
-                        }
+                        { disable_web_page_preview: true }
                     );
                 } catch (error) {
                     console.error('Message processing error:', error);
