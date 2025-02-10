@@ -457,8 +457,8 @@ bot.on('message', async (ctx) => {
 
     let statusMsg = null;
     try {
-        let cleanText = ctx.message.text.replace(`@${botInfo.username}`, '').trim();
-        
+        let cleanText = ctx.message.text.replace(`@${botInfo?.username || ''}`, '').trim();
+
         const isImageRequest = cleanText.toLowerCase().match(/generate|create|visualize|make|draw/g) &&
             cleanText.toLowerCase().match(/image|picture|visual|photo/g);
 
@@ -528,8 +528,20 @@ bot.catch(async (err, ctx) => {
 // bot.launch();
 
 // Graceful shutdown
-process.once('SIGINT', () => bot.stop('SIGINT'));
-process.once('SIGTERM', () => bot.stop('SIGTERM'));
+process.once('SIGINT', () => {
+  try {
+    bot.stop('SIGINT');
+  } catch (err) {
+    console.error('Error while stopping bot:', err);
+  }
+});
+process.once('SIGTERM', () => {
+  try {
+    bot.stop('SIGTERM');
+  } catch (err) {
+    console.error('Error while stopping bot:', err);
+  }
+});
 
 // Export for external use
 module.exports = {
