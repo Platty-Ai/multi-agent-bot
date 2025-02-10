@@ -369,41 +369,11 @@ const handleError = async (error, ctx, statusMsgId = null) => {
 
 // Helper function to check if message mentions bot
 const isBotMentioned = (message, botInfo) => {
-    // Debug logging
-    console.log('Checking message:', {
-        text: message.text,
-        entities: message.entities,
-        botInfo: botInfo
-    });
-
-    // Check for direct mentions in text
-    if (message.entities) {
-        const mentions = message.entities.filter(e => {
-            if (e.type === 'mention') {
-                const mention = message.text.substring(e.offset, e.offset + e.length);
-                console.log('Found mention:', mention);
-                return mention === `@${botInfo.username}`;
-            }
-            return false;
-        });
-        if (mentions.length > 0) return true;
-    }
-
-    // Check for replies to bot's messages
-    if (message.reply_to_message && 
-        message.reply_to_message.from && 
-        message.reply_to_message.from.id === botInfo.id) {
-        return true;
-    }
-
-    // Check for bot commands
-    if (message.entities && 
-        message.entities.some(e => e.type === 'bot_command' && 
-        message.text.substring(e.offset, e.offset + e.length).includes(botInfo.username))) {
-        return true;
-    }
-
-    return false;
+    if (!message.text) return false;
+    
+    // Check if message starts with bot's username
+    const mentionRegex = new RegExp(`^@${botInfo.username}\\s`);
+    return mentionRegex.test(message.text);
 };
 
 // startup logging
@@ -431,42 +401,33 @@ bot.telegram.getMe().then(info => {
 
 // Add message handler with error handling
 bot.on('message', async (ctx) => {
-    // Debug logging
-    console.log('Processing message:', {
-        text: ctx.message.text,
-        botInfo: botInfo
-    });
-    // Check if bot info is loaded
+    // Ensure we have bot info
     if (!botInfo) {
-        console.log('Bot info not yet loaded, attempting to load...');
         try {
             botInfo = await ctx.telegram.getMe();
-            console.log('Bot info loaded:', botInfo);
         } catch (error) {
             console.error('Failed to load bot info:', error);
             return;
         }
     }
 
-    // If private chat, process regardless of mention. Otherwise, check if bot is mentioned.
-    if (ctx.chat.type !== 'private') {
-        if (!isBotMentioned(ctx.message, botInfo)) {
-            console.log('Bot not mentioned, skipping message');
-            return;
-        }
-        console.log('Bot mentioned in group, processing message');
-    } else {
-        console.log('Private chat, processing message');
-    }
+    // For private chats, process all messages
+    // For group chats, only process if bot is mentioned at the start
+    const isPrivateChat = ctx.chat.type === 'private';
+    const isMentioned = isPrivateChat || isBotMentioned(ctx.message, botInfo);
 
-    console.log('Bot mentioned, processing message');
+    if (!isMentioned) {
+        return;
+    }
 
     let statusMsg = null;
     try {
         let cleanText = ctx.message.text.trim();
-        // In group chats, remove the bot's username if it's mentioned
-        if (ctx.chat.type !== 'private') {
-            cleanText = cleanText.replace(`@${botInfo?.username || ''}`, '').trim();
+        
+        // Only remove bot username for group chats
+        if (!isPrivateChat) {
+            // Remove the @botusername from the start of the message
+            cleanText = cleanText.replace(new RegExp(`^@${botInfo.username}\\s*`), '').trim();
         }
         const isImageRequest = cleanText.toLowerCase().match(/generate|create|visualize|make|draw/g) &&
             cleanText.toLowerCase().match(/image|picture|visual|photo/g);
