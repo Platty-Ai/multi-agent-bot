@@ -371,8 +371,8 @@ const handleError = async (error, ctx, statusMsgId = null) => {
 const isBotMentioned = (message, botInfo) => {
     if (!message.text) return false;
     
-    // Check if message starts with bot's username
-    const mentionRegex = new RegExp(`^@${botInfo.username}\\s`);
+    // Check if message contains bot's username
+    const mentionRegex = new RegExp(`@${botInfo.username}\\b`);
     return mentionRegex.test(message.text);
 };
 
