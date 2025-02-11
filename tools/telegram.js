@@ -395,7 +395,7 @@ bot.use(async (ctx, next) => {
 bot.on('message', async (ctx) => {
     // For private chats, process all messages
     // For group chats, only process if bot is mentioned at the start
-    console.warn(ctx.message.text);
+    console.warn("RECEIVED MESSAGE:", ctx.message.text);
     const isPrivateChat = ctx.chat.type === 'private';
     const isMentioned = isPrivateChat || isBotMentioned(ctx.message);
 
@@ -409,8 +409,9 @@ bot.on('message', async (ctx) => {
         
         // Only remove bot username for group chats
         if (!isPrivateChat) {
-            // Remove the @botusername from the start of the message
-            cleanText = cleanText.replace(new RegExp(`^@Agent_Apocalypse_bot\\s*`), '').trim();
+            // Remove the @Agent_Apocalypse_bot and command from the start of the message
+            cleanText = cleanText.replace(new RegExp(`^/\\w+\\s*@Agent_Apocalypse_bot\\s*`), '').trim();
+            console.log("Clean Text: ", cleanText)
         }
         const isImageRequest = cleanText.toLowerCase().match(/generate|create|visualize|make|draw/g) &&
             cleanText.toLowerCase().match(/image|picture|visual|photo/g);
