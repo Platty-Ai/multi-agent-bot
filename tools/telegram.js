@@ -368,11 +368,11 @@ const handleError = async (error, ctx, statusMsgId = null) => {
 };
 
 // Helper function to check if message mentions bot
-const isBotMentioned = (message, botInfo) => {
+const isBotMentioned = (message) => {
     if (!message.text) return false;
     
-    // Check if message contains bot's username
-    const mentionRegex = new RegExp(`@${botInfo.username}\\b`);
+    // Check if message contains the specific bot's username
+    const mentionRegex = new RegExp(`@Agent_Apocalypse_bot\\b`);
     return mentionRegex.test(message.text);
 };
 
@@ -390,31 +390,14 @@ bot.use(async (ctx, next) => {
     await next();
 });
 
-// Initialize bot with explicit logging
-let botInfo;
-bot.telegram.getMe().then(info => {
-    botInfo = info;
-    console.log('Bot initialized with info:', info);
-}).catch(error => {
-    console.error('Failed to get bot info:', error);
-});
 
 // Add message handler with error handling
 bot.on('message', async (ctx) => {
-    // Ensure we have bot info
-    if (!botInfo) {
-        try {
-            botInfo = await ctx.telegram.getMe();
-        } catch (error) {
-            console.error('Failed to load bot info:', error);
-            return;
-        }
-    }
-
     // For private chats, process all messages
     // For group chats, only process if bot is mentioned at the start
+    console.warn(ctx.message.text);
     const isPrivateChat = ctx.chat.type === 'private';
-    const isMentioned = isPrivateChat || isBotMentioned(ctx.message, botInfo);
+    const isMentioned = isPrivateChat || isBotMentioned(ctx.message);
 
     if (!isMentioned) {
         return;
@@ -427,7 +410,7 @@ bot.on('message', async (ctx) => {
         // Only remove bot username for group chats
         if (!isPrivateChat) {
             // Remove the @botusername from the start of the message
-            cleanText = cleanText.replace(new RegExp(`^@${botInfo.username}\\s*`), '').trim();
+            cleanText = cleanText.replace(new RegExp(`^@Agent_Apocalypse_bot\\s*`), '').trim();
         }
         const isImageRequest = cleanText.toLowerCase().match(/generate|create|visualize|make|draw/g) &&
             cleanText.toLowerCase().match(/image|picture|visual|photo/g);
